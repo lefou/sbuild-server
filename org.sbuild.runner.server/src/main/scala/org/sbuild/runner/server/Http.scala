@@ -8,9 +8,7 @@ import akka.actor.Props
 import akka.actor.actorRef2Scala
 import akka.io.Tcp.PeerClosed
 import spray.can.Http.Connected
-import spray.can.Http.Register
 import spray.http.HttpEntity.Empty
-import spray.http.HttpEntity.NonEmpty
 import spray.http.HttpEntity.apply
 import spray.http.HttpMethods.POST
 import spray.http._
@@ -20,15 +18,10 @@ import spray.http.HttpEntity.NonEmpty
 import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.http.Uri
-import java.nio.ByteBuffer
-import spray.httpx.unmarshalling.FormDataUnmarshallers
-import spray.httpx.unmarshalling.Unmarshaller
-import java.net.URLEncoder
 import java.net.URLDecoder
 import scala.concurrent.Future
 
 object Receptionist {
-
   def props(host: String, port: Int, buildHandler: ActorRef, streamHandler: ActorRef): Props =
     Props(new Receptionist(host, port, buildHandler, streamHandler))
 
@@ -81,29 +74,14 @@ class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends 
       }
       println(result.size + " " + result.toSeq)
 
-      // FIXME
       val dir: File = new File(result.head)
-      // FIXME
       val args: Array[String] = result.tail
 
       buildHandler ! BuildReceptionist.BuildRequest(dir, args)
 
       context.become(waitingForBuildId(sender))
-    case HttpRequest(get, Uri.Path("/stream/out"), _, _, _) =>
-      import scala.concurrent.ExecutionContext.Implicits.global
-      Future {
-        while (true) {
-          if (math.random > 0.5)
-            println("Hello!!!")
-          else
-            System.err.println("Fooo Bar!!!")
-
-          Thread.sleep(1000)
-        }
-      }
-
-      sender ! ChunkedResponseStart(HttpResponse())
-      streamHandler ! Subscribe(0, None)
+    case HttpRequest(get, Uri.Path(Parts("stream", id)), _, foo, _) =>
+      buildHandler ! BuildReceptionist.AskHasBuild(id.toLong)
       context.become(streaming(sender))
     case a =>
       sender ! HttpResponse(StatusCodes.NotFound)
@@ -115,8 +93,18 @@ class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends 
         case OutLine(text, time) => client ! MessageChunk(s"[out] $time - $text\n")
         case ErrLine(text, time) => client ! MessageChunk(s"[err] $time - $text\n")
       }
+
+    case BuildReceptionist.HasBuild(id, true) =>
+      client ! ChunkedResponseStart(HttpResponse())
+      streamHandler ! Subscribe(0, None)
+      buildHandler ! BuildReceptionist.Subscribe
+
+    case BuildReceptionist.HasBuild(id, false) =>
+      client ! HttpResponse(StatusCodes.NotFound, "ID nto found!")
+
+    case BuildReceptionist.BuildFinishedNotification(id) =>
+      client ! ChunkedMessageEnd()
   }
-    // TODO: end stream
 
   def generalAction: Actor.Receive = {
     case PeerClosed =>
@@ -128,4 +116,8 @@ class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends 
       client ! HttpResponse(entity = s"${id}")
       self ! PoisonPill
   }
+}
+
+object Parts {
+  def unapplySeq(pathStr: String): Option[Seq[String]] = Some(pathStr.substring(1).split("/").toList)
 }

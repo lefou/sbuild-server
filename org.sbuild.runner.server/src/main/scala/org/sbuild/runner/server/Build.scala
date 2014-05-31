@@ -2,11 +2,7 @@ package org.sbuild.runner.server
 
 import java.io.File
 import org.sbuild.runner.SBuildRunner
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.Props
-import akka.actor.actorRef2Scala
-import akka.actor.PoisonPill
+import akka.actor._
 
 object BuildReceptionist {
   case class BuildRequest(directory: File, args: Array[String])
@@ -18,13 +14,17 @@ object BuildReceptionist {
   case object CancelAll
 
   case class AskHasBuild(id: Long)
-  case class HasBuild(id: Long)
+  case class HasBuild(id: Long, has: Boolean)
+
+  case object Subscribe
+  case class BuildFinishedNotification(id: Long)
 
   def props(sbuildHomeDir: File): Props = Props(new BuildReceptionist(sbuildHomeDir))
 }
 
 class BuildReceptionist(sbuildHomeDir: File) extends Actor {
   require(sbuildHomeDir.exists(), s"SBuild home directory does not exists: ${sbuildHomeDir}")
+
   import BuildReceptionist._
 
   private[this] var _nextId = 0L
@@ -34,6 +34,8 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
   }
 
   private[this] var workers: Map[Long, ActorRef] = Map()
+  private var subscribers: Vector[ActorRef] = Vector.empty
+
 
   def receive: Actor.Receive = {
     case BuildRequest(dir, args) =>
@@ -44,14 +46,21 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
       sender ! RequestProcessor.BuildStarted(id)
 
     case BuildFinished =>
-      workers.filter(_._2 == sender)
+      val worker = workers find (_._2 == sender) getOrElse
+        (throw new IllegalStateException("Ooops! Can't find worker ID!"))
+
+      workers = workers.filter(worker ==)
+      subscribers foreach (s => s ! BuildFinishedNotification(worker._1))
 
     case AskHasBuild(id) =>
-      workers.contains(id)
-      sender ! HasBuild(id)
+      sender ! HasBuild(id, workers contains id)
 
-    // TODO: suport subscription and unsubscription
-    // TODO: cretae a deathwatch for our workers
+    case Subscribe =>
+      context watch sender
+
+      subscribers = subscribers :+ sender
+    case Terminated(ref) =>
+      subscribers = subscribers.filterNot(ref ==)
   }
 }
 

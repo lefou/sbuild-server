@@ -35,20 +35,26 @@ class JvmStreamProcessor extends Actor {
     val (outOut, outIn) = getPipedOutStream
     val (errOut, errIn) = getPipedOutStream
 
+    startListener(stopOut, outIn, System.out, System.setOut, OutLine(_))
+    startListener(stopErr, errIn, System.err, System.setErr, ErrLine(_))
+
     System.setOut(outOut)
     System.setErr(errOut)
-
-    startListener(stopOut, outIn, OutLine(_))
-    startListener(stopErr, errIn, ErrLine(_))
   }
 
-  def startListener(stopCond: AtomicBoolean, in: BufferedReader, lineFn: String => Line) {
+  def startListener(stopCond: AtomicBoolean, in: BufferedReader, default: PrintStream, restoreFn: (PrintStream) => Unit, lineFn: String => Line) {
     Future {
       while (!stopCond.get) {
         val line = in.readLine()
 
-        if (line == null) stopCond.set(true)
-        else newLine(lineFn(line))
+
+        if (line == null){
+          stopCond.set(true)
+          restoreFn(default)
+        } else {
+          default.println(line)
+          newLine(lineFn(line))
+        }
       }
     }
   }

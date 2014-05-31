@@ -4,7 +4,7 @@ import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
 import scala.concurrent.duration._
-import scala.concurrent.Await
+import scala.concurrent.{ExecutionContext, Await}
 import akka.io.IO
 import spray.can.Http
 import scala.util.{ Failure, Success }
@@ -18,6 +18,7 @@ import spray.can.Http.Register
 import scala.util.Failure
 import java.io.File
 import de.tototec.cmdoption.CmdlineParser
+import java.util.concurrent.ThreadPoolExecutor
 
 case object GetHttpConfig
 case class HttpConfig(host: String, port: Int)
