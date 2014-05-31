@@ -2,9 +2,29 @@ import de.tototec.sbuild._
 import de.tototec.sbuild.ant._
 import de.tototec.sbuild.ant.tasks._
 
-@version("0.7.1")
+@version("0.7.6")
 @classpath("mvn:org.apache.ant:ant:1.8.4", "mvn:org.sbuild:org.sbuild.plugins.aether:0.1.0")
 class SBuild(implicit _project: Project) {
+
+  
+  val sprayVersion = "1.3.1-20140423"
+  val akkaVersion = "2.3.2"
+  
+  import org.sbuild.plugins.aether._
+  Plugin[Aether]("aether") configure {
+    _.copy(remoteRepos = Seq(Repository.Central, "spray::default::http://repo.spray.io")).
+      addDeps("compile")(
+        "org.scala-lang:scala-library:2.11.1",
+        "org.scala-lang:scala-compiler:2.11.1",
+        s"com.typesafe.akka:akka-actor_2.11:${akkaVersion}",
+        s"io.spray:spray-can_2.11:${sprayVersion}",
+        s"io.spray:spray-client_2.11:${sprayVersion}",
+        // "org.json4s:json4s-native_2.11:3.2.9",
+        //        "com.typesafe:scalalogging-slf4j_2.10:1.1.0",
+        "ch.qos.logback:logback-classic:1.0.13"
+      ).
+      addDeps("runtime")("compile")
+  }
 
   // sbuild master
   val sbuildPath = Path(Prop("SBUILD_MASTER", "../sbuild"))
@@ -23,6 +43,7 @@ class SBuild(implicit _project: Project) {
   val scalaTest = "mvn:org.scalatest:scalatest_2.11:2.1.7"
 
   val compileCp =
+    "aether:compile" ~
     scalaLibrary ~ scalaXml ~
       "mvn:de.tototec:de.tototec.cmdoption:0.3.2" ~
       (sbuildPath / s"org.sbuild/target/org.sbuild-${sbuildVersion}.jar")
