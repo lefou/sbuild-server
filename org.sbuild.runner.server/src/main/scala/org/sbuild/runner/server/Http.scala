@@ -19,12 +19,19 @@ import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.http.Uri
 
-class Receptionist(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
+object Receptionist {
+
+  def props(host: String, port: Int, buildHandler: ActorRef, streamHandler: ActorRef): Props =
+    Props(new Receptionist(host, port, buildHandler, streamHandler))
+
+}
+
+class Receptionist(host: String, port: Int, buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
   def receive: Actor.Receive = initializing
 
   def initializing: Actor.Receive = {
     case GetHttpConfig =>
-      sender ! HttpConfig("0.0.0.0", 1234)
+      sender ! HttpConfig(host, port)
       context become accepting
   }
 
@@ -39,6 +46,7 @@ class Receptionist(buildHandler: ActorRef, streamHandler: ActorRef) extends Acto
 
 object RequestProcessor {
   case class BuildStarted(buildId: Long)
+
 }
 
 class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {

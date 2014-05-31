@@ -20,7 +20,11 @@ class SBuild(implicit _project: Project) {
         s"io.spray:spray-client_2.11:${sprayVersion}",
         // "org.json4s:json4s-native_2.11:3.2.9",
         //        "com.typesafe:scalalogging-slf4j_2.10:1.1.0",
-        "ch.qos.logback:logback-classic:1.0.13").
+        "ch.qos.logback:logback-classic:1.0.13",
+        "ch.qos.logback:logback-classic:1.0.13",
+        "de.tototec:de.tototec.cmdoption:0.3.2",
+        "org.fusesource.jansi:jansi:1.11"
+      ).
         addDeps("runtime")("compile")
   }
 
@@ -142,7 +146,7 @@ class SBuild(implicit _project: Project) {
     def dependsOn(schemeContext: SchemeHandler.SchemeContext): TargetRefs = "aether:runtime" ~ "compile"
     def resolve(schemeContext: SchemeHandler.SchemeContext, targetContext: TargetContext): Unit = {
       schemeContext.path.split(" ") match {
-        case args @ Array(className) =>
+        case args if !args.isEmpty =>
           addons.support.ForkSupport.runJavaAndWait(
             classpath = "aether:runtime".files ++ Seq(Path("target/classes")),
             arguments = args)
