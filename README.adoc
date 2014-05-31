@@ -1,0 +1,25 @@
+= SBuild Server
+
+An SBuild server, serving as a long running daemon to reduce initialization time and gain from warmed up JVM.
+
+This project was initiated and initially developed at the http://www.meetup.com/Scala-Berlin-Brandenburg/events/182906492/[ScalaDays Hackathon in Berlin].
+
+== The Goal for this Hackathon: SBuild Server
+
+_proposal by Tobias Roeser_
+
+SBuild is a Scala based build tool, which uses plain Scala files as configuration format, but these files need to be compiled by SBuild (at least once) before the build can run.
+
+With a server running on the local developer machine it could get a large speedup. Because the server runs permanently, it has no extra startup time and gains additional momentum from already loaded and JIT-ed classfiles.
+
+Homepage: http://sbuild.org/
+GitHub: https://github.com/SBuild-org/sbuild
+
+*Goals:*
+
+Writing a server application which spawns separated SBuild instances per request. The Server should use a REST API to accept job. The implementation should be based on Spray. Effects to the filesystem should be directly produced by the server, but all output (stderr, stdout, return code) need to be returned to the client.
+
+The client should be a simple command line app accepting all sbuild command line options additional to some potential extra options needed to control the client-server communication.
+
+Advanced features like support for multiple SBuild versions can be ignored for now.
+

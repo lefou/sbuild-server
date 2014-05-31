@@ -1,0 +1,3 @@
+[submodule "sbuild"]
+	path = sbuild
+	url = https://github.com/SBuild-org/sbuild.git
