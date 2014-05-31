@@ -143,16 +143,19 @@ class SBuild(implicit _project: Project) {
 
   SchemeHandler("run", new SchemeHandler with SchemeResolverWithDependencies {
     def localPath(schemeContext: SchemeHandler.SchemeContext): String = s"phony:${schemeContext.fullName}"
-    def dependsOn(schemeContext: SchemeHandler.SchemeContext): TargetRefs = "aether:runtime" ~ "compile"
+    def dependsOn(schemeContext: SchemeHandler.SchemeContext): TargetRefs = compileCp ~ jar
     def resolve(schemeContext: SchemeHandler.SchemeContext, targetContext: TargetContext): Unit = {
       schemeContext.path.split(" ") match {
         case args if !args.isEmpty =>
           addons.support.ForkSupport.runJavaAndWait(
-            classpath = "aether:runtime".files ++ Seq(Path("target/classes")),
+            classpath = compileCp.files ++ jar.files,
             arguments = args)
         case _ => throw new RuntimeException("Unsupport path: " + schemeContext)
       }
     }
   })
+  
+  Target("phony:run-server") dependsOn jar ~ s"${sbuildPath}/sbuild-dist::createDistDir" ~~ 
+    s"run:org.sbuild.runner.server.Server --sbuild-home ${sbuildPath}/sbuild-dist/target/sbuild-${sbuildVersion}"
 
 }

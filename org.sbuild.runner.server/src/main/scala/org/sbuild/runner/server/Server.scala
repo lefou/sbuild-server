@@ -18,8 +18,6 @@ import spray.can.Http.Register
 import scala.util.Failure
 import java.io.File
 import de.tototec.cmdoption.CmdlineParser
-import org.sbuild.runner.server.Receptionist
-import org.sbuild.runner.server.Receptionist
 
 case object GetHttpConfig
 case class HttpConfig(host: String, port: Int)
