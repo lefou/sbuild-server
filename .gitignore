@@ -5,5 +5,5 @@
 
 # Genaral
 target/
-
-
+.cache
+.sbuild/
