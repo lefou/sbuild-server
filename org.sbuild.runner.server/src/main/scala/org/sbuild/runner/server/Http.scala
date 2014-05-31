@@ -1,7 +1,6 @@
 package org.sbuild.runner.server
 
 import java.io.File
-
 import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.PoisonPill
@@ -18,6 +17,11 @@ import spray.http.HttpRequest
 import spray.http.HttpResponse
 import spray.http.StatusCodes
 import spray.http.Uri
+import java.nio.ByteBuffer
+import spray.httpx.unmarshalling.FormDataUnmarshallers
+import spray.httpx.unmarshalling.Unmarshaller
+import java.net.URLEncoder
+import java.net.URLDecoder
 
 object Receptionist {
 
@@ -64,15 +68,17 @@ class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends 
     //    //      (new SBuildRunner).run()
     case HttpRequest(POST, Uri.Path("/run"), _, Empty, _) =>
       sender ! HttpResponse(StatusCodes.BadRequest, "Please provide working directory in the body of the request.")
-    case HttpRequest(POST, Uri.Path("/run"), _, NonEmpty(_, entity), _) =>
-      val lines = new String(entity.toByteArray, "UTF-8").lines
+    case HttpRequest(POST, Uri.Path("/run"), _, entity @ NonEmpty(contentType, data), _) =>
 
-      lines.zipWithIndex foreach { case (a, b) => println(a, b) }
+      val result = entity.asString.split("[&]").map { s =>
+        URLDecoder.decode(s, "UTF-8")
+      }
+      println(result.size + " " + result.toSeq)
 
       // FIXME
-      val dir: File = ???
+      val dir: File = new File(result.head)
       // FIXME
-      val args: Array[String] = Array()
+      val args: Array[String] = result.tail
 
       buildHandler ! BuildReceptionist.BuildRequest(dir, args)
 

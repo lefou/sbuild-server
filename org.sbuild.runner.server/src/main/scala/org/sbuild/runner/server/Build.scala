@@ -29,7 +29,7 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
 
   private[this] var _nextId = 0L
   def nextId(): Long = {
-    _nextId = nextId + 1
+    _nextId = _nextId + 1
     _nextId
   }
 
@@ -38,7 +38,7 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
   def receive: Actor.Receive = {
     case BuildRequest(dir, args) =>
       val id = nextId()
-      val worker = context.actorOf(BuildWorker.props(self, dir, args))
+      val worker = context.actorOf(BuildWorker.props(self, dir, Array("--sbuild-home", sbuildHomeDir.getAbsolutePath()) ++ args))
       workers += id -> worker
 
       sender ! RequestProcessor.BuildStarted(id)
