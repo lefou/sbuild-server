@@ -6,10 +6,9 @@ import de.tototec.sbuild.ant.tasks._
 @classpath("mvn:org.apache.ant:ant:1.8.4", "mvn:org.sbuild:org.sbuild.plugins.aether:0.1.0")
 class SBuild(implicit _project: Project) {
 
-  
   val sprayVersion = "1.3.1-20140423"
   val akkaVersion = "2.3.2"
-  
+
   import org.sbuild.plugins.aether._
   Plugin[Aether]("aether") configure {
     _.copy(remoteRepos = Seq(Repository.Central, "spray::default::http://repo.spray.io")).
@@ -21,9 +20,8 @@ class SBuild(implicit _project: Project) {
         s"io.spray:spray-client_2.11:${sprayVersion}",
         // "org.json4s:json4s-native_2.11:3.2.9",
         //        "com.typesafe:scalalogging-slf4j_2.10:1.1.0",
-        "ch.qos.logback:logback-classic:1.0.13"
-      ).
-      addDeps("runtime")("compile")
+        "ch.qos.logback:logback-classic:1.0.13").
+        addDeps("runtime")("compile")
   }
 
   // sbuild master
@@ -42,11 +40,8 @@ class SBuild(implicit _project: Project) {
   val scalaXml = "mvn:org.scala-lang.modules:scala-xml_2.11:1.0.2"
   val scalaTest = "mvn:org.scalatest:scalatest_2.11:2.1.7"
 
-  val compileCp =
-    "aether:compile" ~
-    scalaLibrary ~ scalaXml ~
-      "mvn:de.tototec:de.tototec.cmdoption:0.3.2" ~
-      (sbuildPath / s"org.sbuild/target/org.sbuild-${sbuildVersion}.jar")
+  val compileCp = "aether:compile" ~
+    (sbuildPath / s"org.sbuild/target/org.sbuild-${sbuildVersion}.jar")
 
   val testCp = compileCp ~
     scalaTest
@@ -75,8 +70,7 @@ class SBuild(implicit _project: Project) {
         sources = "scan:src/main/scala".files,
         destDir = Path(output),
         unchecked = true, deprecation = true, debugInfo = "vars",
-        fork = true
-      )
+        fork = true)
 
     }
 
@@ -94,20 +88,18 @@ class SBuild(implicit _project: Project) {
   Target(sourcesZip) dependsOn "scan:src/main" ~ "scan:LICENSE.txt" exec { ctx: TargetContext =>
     AntZip(destFile = ctx.targetFile.get, fileSets = Seq(
       AntFileSet(dir = Path("src/main/scala")),
-      AntFileSet(file = Path("LICENSE.txt"))
-    ))
+      AntFileSet(file = Path("LICENSE.txt"))))
   }
 
   Target("phony:testCompile").cacheable dependsOn compilerPath ~ testCp ~ jar ~ "scan:src/test/scala" exec {
-    if(!"scan:src/test/scala".files.isEmpty) {
+    if (!"scan:src/test/scala".files.isEmpty) {
       addons.scala.Scalac(
         compilerClasspath = compilerPath.files,
         classpath = testCp.files ++ jar.files,
         sources = "scan:src/test/scala".files,
         destDir = Path("target/test-classes"),
         deprecation = true, unchecked = true, debugInfo = "vars",
-        fork = true
-      )
+        fork = true)
     }
   }
 
@@ -122,8 +114,7 @@ class SBuild(implicit _project: Project) {
 
     val res = addons.support.ForkSupport.runJavaAndWait(
       classpath = testCp.files ++ jar.files,
-      arguments = Array("org.scalatest.tools.Runner", "-p", Path("target/test-classes").getPath, "-oG", "-u", Path("target/test-output").getPath)
-    )
+      arguments = Array("org.scalatest.tools.Runner", "-p", Path("target/test-classes").getPath, "-oG", "-u", Path("target/test-output").getPath))
     if (res != 0) throw new RuntimeException("Some tests failed")
 
   }
@@ -136,8 +127,7 @@ class SBuild(implicit _project: Project) {
       destDir = Path("target/scaladoc"),
       deprecation = true, unchecked = true, implicits = true,
       docVersion = sbuildVersion,
-      docTitle = s"SBuild Runner API Reference"
-    )
+      docTitle = s"SBuild Runner API Reference")
   }
 
   Target("phony:libs") dependsOn compileCp exec { ctx: TargetContext =>
@@ -145,5 +135,19 @@ class SBuild(implicit _project: Project) {
     libDir.mkdirs()
     ctx.fileDependencies.foreach { file => file.copyTo(libDir / file.getName) }
   }
+
+  SchemeHandler("run", new SchemeHandler with SchemeResolverWithDependencies {
+    def localPath(schemeContext: SchemeHandler.SchemeContext): String = s"phony:${schemeContext.fullName}"
+    def dependsOn(schemeContext: SchemeHandler.SchemeContext): TargetRefs = "aether:runtime" ~ "compile"
+    def resolve(schemeContext: SchemeHandler.SchemeContext, targetContext: TargetContext): Unit = {
+      schemeContext.path.split(" ") match {
+        case args @ Array(className) =>
+          addons.support.ForkSupport.runJavaAndWait(
+            classpath = "aether:runtime".files ++ Seq(Path("target/classes")),
+            arguments = args)
+        case _ => throw new RuntimeException("Unsupport path: " + schemeContext)
+      }
+    }
+  })
 
 }
