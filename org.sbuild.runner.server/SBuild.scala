@@ -16,7 +16,7 @@ class SBuild(implicit _project: Project) {
         "org.scala-lang:scala-library:2.11.1",
         "org.scala-lang:scala-compiler:2.11.1",
         s"com.typesafe.akka:akka-actor_2.11:${akkaVersion}",
-        s"io.spray:spray-routing_2.11:${sprayVersion}",
+        s"io.spray:spray-can_2.11:${sprayVersion}",
         s"io.spray:spray-client_2.11:${sprayVersion}",
         // "org.json4s:json4s-native_2.11:3.2.9",
         //        "com.typesafe:scalalogging-slf4j_2.10:1.1.0",
