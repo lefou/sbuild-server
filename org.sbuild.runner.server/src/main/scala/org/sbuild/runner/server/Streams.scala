@@ -29,6 +29,8 @@ class JvmStreamProcessor extends Actor {
   private var buffer: Vector[Line] = Vector.empty
   private var subscribers: Vector[ActorRef] = Vector.empty
 
+  setupStreams()
+
   def setupStreams() {
     val (outOut, outIn) = getPipedOutStream
     val (errOut, errIn) = getPipedOutStream
@@ -42,7 +44,7 @@ class JvmStreamProcessor extends Actor {
 
   def startListener(stopCond: AtomicBoolean, in: BufferedReader, lineFn: String => Line) {
     Future {
-      while (stopCond.get) {
+      while (!stopCond.get) {
         val line = in.readLine()
 
         if (line == null) stopCond.set(true)
@@ -87,7 +89,7 @@ object JvmStreamProcessor {
 
 trait Line {
   def text: String
-  val time: Long
+  def time: Long
 }
 
 case class OutLine(text: String, time: Long = System.currentTimeMillis()) extends Line
