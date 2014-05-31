@@ -1,23 +1,23 @@
 package org.sbuild.runner.server
 
-import akka.actor._
-import akka.pattern.ask
-import akka.util.Timeout
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import akka.io.IO
-import spray.can.Http
-import scala.util.{Failure, Success}
-import spray.http._
-import HttpMethods._
-import spray.can.Http.{Connected, Register}
-import scala.util.Success
-import spray.can.Http.Register
-import scala.util.Failure
+import java.io.File
+
+import akka.actor.Actor
+import akka.actor.ActorRef
+import akka.actor.PoisonPill
+import akka.actor.Props
+import akka.actor.actorRef2Scala
 import akka.io.Tcp.PeerClosed
-import spray.http.HttpRequest
+import spray.can.Http.Connected
 import spray.can.Http.Register
-import spray.http.HttpEntity.{NonEmpty, Empty}
+import spray.http.HttpEntity.Empty
+import spray.http.HttpEntity.NonEmpty
+import spray.http.HttpEntity.apply
+import spray.http.HttpMethods.POST
+import spray.http.HttpRequest
+import spray.http.HttpResponse
+import spray.http.StatusCodes
+import spray.http.Uri
 
 class Receptionist(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
   def receive: Actor.Receive = initializing
@@ -32,30 +32,56 @@ class Receptionist(buildHandler: ActorRef, streamHandler: ActorRef) extends Acto
     case Connected(a, b) =>
       val processor = context.actorOf(Props(new RequestProcessor(buildHandler, streamHandler)))
 
-      println("fooo"  + a + " " + b)
+      println("fooo" + a + " " + b)
       sender ! Register(processor)
   }
 }
 
+object RequestProcessor {
+  case class BuildStarted(buildId: Long)
+}
+
 class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
-  def receive: Actor.Receive = {
-      case PeerClosed =>
-          self ! PoisonPill
-//    case Count(client, 0) =>
-//      client ! ChunkedMessageEnd()
-//      context.become(accepting)
-//    case Count(client, remaining) =>
-//      client ! MessageChunk(s"Count $remaining\n")
-//      context.system.scheduler.scheduleOnce(2.seconds, self, Count(client, remaining - 1))
-//    //      (new SBuildRunner).run()
+  import RequestProcessor._
+
+  def receive: Actor.Receive = awaitRequest
+
+  def awaitRequest: Actor.Receive = generalAction orElse {
+    //    case Count(client, 0) =>
+    //      client ! ChunkedMessageEnd()
+    //      context.become(accepting)
+    //    case Count(client, remaining) =>
+    //      client ! MessageChunk(s"Count $remaining\n")
+    //      context.system.scheduler.scheduleOnce(2.seconds, self, Count(client, remaining - 1))
+    //    //      (new SBuildRunner).run()
     case HttpRequest(POST, Uri.Path("/run"), _, Empty, _) =>
       sender ! HttpResponse(StatusCodes.BadRequest, "Please provide working directory in the body of the request.")
     case HttpRequest(POST, Uri.Path("/run"), _, NonEmpty(_, entity), _) =>
-      val lines  = new String(entity.toByteArray, "UTF-8").lines
+      val lines = new String(entity.toByteArray, "UTF-8").lines
 
-      lines.zipWithIndex foreach {case (a, b) => println(a, b)}
-      sender ! HttpResponse(entity = "Ok!!")
+      lines.zipWithIndex foreach { case (a, b) => println(a, b) }
+
+      // FIXME
+      val dir: File = ???
+      // FIXME
+      val args: Array[String] = Array()
+
+      buildHandler ! BuildReceptionist.BuildRequest(dir, args)
+
+      context.become(waitingForBuildId(sender))
+
     case a =>
       sender ! HttpResponse(StatusCodes.NotFound)
+  }
+
+  def generalAction: Actor.Receive = {
+    case PeerClosed =>
+      self ! PoisonPill
+  }
+
+  def waitingForBuildId(client: ActorRef): Actor.Receive = generalAction orElse {
+    case BuildStarted(id) =>
+      client ! HttpResponse(entity = s"${id}")
+      self ! PoisonPill
   }
 }
