@@ -23,8 +23,9 @@ case class HttpConfig(host: String, port: Int)
 object Server extends App {
   implicit val system = ActorSystem()
 
+
   // the handler actor replies to incoming HttpRequests
-  val handler = system.actorOf(Props[Foo], "coffee-service")
+  val handler = system.actorOf(Props[Receptionist], "coffee-service")
 
   import system.dispatcher
   implicit val timeout = Timeout(5.seconds)
@@ -36,35 +37,5 @@ object Server extends App {
       throw new IllegalStateException(s"Unexpected result: $s")
     case Failure(t) =>
       t.printStackTrace()
-  }
-}
-
-case class Count(client: ActorRef, remaining: Int)
-
-class Foo extends Actor {
-  import scala.concurrent.ExecutionContext.Implicits.global
-
-  def receive = accepting
-
-  def accepting: Actor.Receive = {
-    case GetHttpConfig =>
-      sender ! HttpConfig("0.0.0.0", 1234)
-    case Connected(_, _) =>
-      sender ! Register(self)
-    case HttpRequest(POST, Uri.Path("/execute"), _, _, _) =>
-      val client  = sender
-      client ! ChunkedResponseStart(HttpResponse())
-
-      context.system.scheduler.scheduleOnce(100.millis, self, Count(client, 10))
-      context.become(counting)
-  }
-
-  def counting: Actor.Receive = {
-    case Count(client, 0) =>
-      client ! ChunkedMessageEnd()
-      context.become(accepting)
-    case Count(client, remaining) =>
-      client ! MessageChunk(s"Count $remaining\n")
-      context.system.scheduler.scheduleOnce(2.seconds, self, Count(client, remaining - 1))
   }
 }
