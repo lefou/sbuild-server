@@ -16,7 +16,6 @@ import spray.http.HttpResponse
 import scala.util.Success
 import spray.can.Http.Register
 import scala.util.Failure
-import org.sbuild.runner.server.HttpConfig
 
 case object GetHttpConfig
 case class HttpConfig(host: String, port: Int)

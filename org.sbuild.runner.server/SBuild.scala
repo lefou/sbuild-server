@@ -41,7 +41,8 @@ class SBuild(implicit _project: Project) {
   val scalaTest = "mvn:org.scalatest:scalatest_2.11:2.1.7"
 
   val compileCp = "aether:compile" ~
-    (sbuildPath / s"org.sbuild/target/org.sbuild-${sbuildVersion}.jar")
+    (sbuildPath / s"org.sbuild/target/org.sbuild-${sbuildVersion}.jar") ~
+    (sbuildPath / s"org.sbuild.runner/target/org.sbuild.runner-${sbuildVersion}.jar")
 
   val testCp = compileCp ~
     scalaTest
