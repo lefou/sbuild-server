@@ -11,26 +11,36 @@ import scala.util.{Failure, Success}
 import spray.http._
 import HttpMethods._
 import spray.can.Http.{Connected, Register}
-import spray.http.HttpRequest
-import spray.http.HttpResponse
 import scala.util.Success
 import spray.can.Http.Register
 import scala.util.Failure
+import akka.io.Tcp.PeerClosed
+import spray.http.HttpRequest
+import spray.can.Http.Register
+import spray.http.HttpEntity.{NonEmpty, Empty}
 
-class Receptionist extends Actor {
-  def receive: Actor.Receive = {
+class Receptionist(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
+  def receive: Actor.Receive = initializing
+
+  def initializing: Actor.Receive = {
     case GetHttpConfig =>
       sender ! HttpConfig("0.0.0.0", 1234)
-    case Connected(_, _) =>
-      val processor = context.actorOf(Props[RequestProcessor])
+      context become accepting
+  }
 
+  def accepting: Actor.Receive = {
+    case Connected(a, b) =>
+      val processor = context.actorOf(Props(new RequestProcessor(buildHandler, streamHandler)))
+
+      println("fooo"  + a + " " + b)
       sender ! Register(processor)
   }
 }
 
-class RequestProcessor extends Actor {
-  def receive: Actor.Receive = ???
-//  {
+class RequestProcessor(buildHandler: ActorRef, streamHandler: ActorRef) extends Actor {
+  def receive: Actor.Receive = {
+      case PeerClosed =>
+          self ! PoisonPill
 //    case Count(client, 0) =>
 //      client ! ChunkedMessageEnd()
 //      context.become(accepting)
@@ -38,11 +48,14 @@ class RequestProcessor extends Actor {
 //      client ! MessageChunk(s"Count $remaining\n")
 //      context.system.scheduler.scheduleOnce(2.seconds, self, Count(client, remaining - 1))
 //    //      (new SBuildRunner).run()
-//    case HttpRequest(POST, Uri.Path("/execute"), _, _, _) =>
-//      val client  = sender
-//      client ! ChunkedResponseStart(HttpResponse())
-//
-//      context.system.scheduler.scheduleOnce(100.millis, self, Count(client, 10))
-//      context.become(counting)
-//  }
+    case HttpRequest(POST, Uri.Path("/run"), _, Empty, _) =>
+      sender ! HttpResponse(StatusCodes.BadRequest, "Please provide working directory in the body of the request.")
+    case HttpRequest(POST, Uri.Path("/run"), _, NonEmpty(_, entity), _) =>
+      val lines  = new String(entity.toByteArray, "UTF-8").lines
+
+      lines.zipWithIndex foreach {case (a, b) => println(a, b)}
+      sender ! HttpResponse(entity = "Ok!!")
+    case a =>
+      sender ! HttpResponse(StatusCodes.NotFound)
+  }
 }

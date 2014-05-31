@@ -18,9 +18,15 @@ import spray.can.Http.Register
 import scala.util.Failure
 
 class BuildReceptionist extends Actor {
-  def receive: Actor.Receive = ???
+  def receive: Actor.Receive = {
+    case e =>
+      println(e)
+  }
 }
 
 class BuildWorker extends Actor {
-  def receive: Actor.Receive = ???
+  def receive: Actor.Receive = {
+    case e =>
+      println(e)
+  }
 }
