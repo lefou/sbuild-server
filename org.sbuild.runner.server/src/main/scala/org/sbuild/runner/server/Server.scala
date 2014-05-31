@@ -40,33 +40,32 @@ object Server extends App {
   }
 }
 
-//object Server extends App with SimpleRoutingApp {
-//
-//  implicit val actorSystem = ActorSystem()
-//
-//  private val serverPort = 8080
-//
-//  startServer(interface = "0.0.0.0", port = serverPort) {
-//    post {
-//      path("echo") {
-//        entity(as[String]) {
-//          parameters =>
-//            println(parameters.split("&").toList)
-//            complete {
-//              s"http://localhost:$serverPort/echo/1234"
-//            }
-//
-//        }
-//
-//      }
-//    } ~
-//      get {
-//        path("echo" / Rest) {
-//          id =>
-//            complete {
-//              s"log for run of $id"
-//            }
-//        }
-//      }
-//  }
-//}
+case class Count(client: ActorRef, remaining: Int)
+
+class Foo extends Actor {
+  import scala.concurrent.ExecutionContext.Implicits.global
+
+  def receive = accepting
+
+  def accepting: Actor.Receive = {
+    case GetHttpConfig =>
+      sender ! HttpConfig("0.0.0.0", 1234)
+    case Connected(_, _) =>
+      sender ! Register(self)
+    case HttpRequest(POST, Uri.Path("/execute"), _, _, _) =>
+      val client  = sender
+      client ! ChunkedResponseStart(HttpResponse())
+
+      context.system.scheduler.scheduleOnce(100.millis, self, Count(client, 10))
+      context.become(counting)
+  }
+
+  def counting: Actor.Receive = {
+    case Count(client, 0) =>
+      client ! ChunkedMessageEnd()
+      context.become(accepting)
+    case Count(client, remaining) =>
+      client ! MessageChunk(s"Count $remaining\n")
+      context.system.scheduler.scheduleOnce(2.seconds, self, Count(client, remaining - 1))
+  }
+}
