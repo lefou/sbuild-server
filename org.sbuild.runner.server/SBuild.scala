@@ -3,7 +3,7 @@ import de.tototec.sbuild.ant._
 import de.tototec.sbuild.ant.tasks._
 
 @version("0.7.1")
-@classpath("mvn:org.apache.ant:ant:1.8.4")
+@classpath("mvn:org.apache.ant:ant:1.8.4", "mvn:org.sbuild:org.sbuild.plugins.aether:0.1.0")
 class SBuild(implicit _project: Project) {
 
   // sbuild master
@@ -117,6 +117,12 @@ class SBuild(implicit _project: Project) {
       docVersion = sbuildVersion,
       docTitle = s"SBuild Runner API Reference"
     )
+  }
+
+  Target("phony:libs") dependsOn compileCp exec { ctx: TargetContext =>
+    val libDir = Path("target/libs")
+    libDir.mkdirs()
+    ctx.fileDependencies.foreach { file => file.copyTo(libDir / file.getName) }
   }
 
 }
