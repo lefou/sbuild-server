@@ -3,10 +3,12 @@ package org.sbuild.runner.server
 import java.io.File
 import org.sbuild.runner.SBuildRunner
 import akka.actor._
+import scala.util.control.NonFatal
 
 object BuildReceptionist {
   case class BuildRequest(directory: File, args: Array[String])
-  case object BuildFinished
+  case class BuildFinished(retVal: Int)
+  case class BuildFailed(e: Throwable)
 
   case class BuildSubscribe(subscriber: ActorRef)
 
@@ -36,6 +38,15 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
   private[this] var workers: Map[Long, ActorRef] = Map()
   private var subscribers: Vector[ActorRef] = Vector.empty
 
+  def removeWorker(ref: ActorRef, retVal: Int, error: Option[Throwable] = None): Unit = {
+    val worker = workers find (_._2 == sender) getOrElse
+      (throw new IllegalStateException("Ooops! Can't find worker ID!"))
+
+    workers = workers.filter(worker !=)
+    subscribers foreach (s => s ! BuildFinishedNotification(worker._1))
+
+    // TODO: tell somebody
+  }
 
   def receive: Actor.Receive = {
     case BuildRequest(dir, args) =>
@@ -43,22 +54,22 @@ class BuildReceptionist(sbuildHomeDir: File) extends Actor {
       val worker = context.actorOf(BuildWorker.props(self, dir, Array("--sbuild-home", sbuildHomeDir.getAbsolutePath()) ++ args))
       workers += id -> worker
 
+      worker ! BuildWorker.StartBuild
       sender ! RequestProcessor.BuildStarted(id)
 
-    case BuildFinished =>
-      val worker = workers find (_._2 == sender) getOrElse
-        (throw new IllegalStateException("Ooops! Can't find worker ID!"))
+    case BuildFailed(exception) =>
+      removeWorker(sender, 1, Some(exception))
 
-      workers = workers.filter(worker ==)
-      subscribers foreach (s => s ! BuildFinishedNotification(worker._1))
+    case BuildFinished(revVal) =>
+      removeWorker(sender, revVal, None)
 
     case AskHasBuild(id) =>
       sender ! HasBuild(id, workers contains id)
 
     case Subscribe =>
       context watch sender
-
       subscribers = subscribers :+ sender
+
     case Terminated(ref) =>
       subscribers = subscribers.filterNot(ref ==)
   }
@@ -77,8 +88,12 @@ class BuildWorker(master: ActorRef, dir: File, args: Array[String]) extends Acto
 
   def receive: Actor.Receive = {
     case StartBuild =>
-      val retVal = SBuildRunner.run(cwd = dir, args = args, rethrowInVerboseMode = false)
-      master ! BuildReceptionist.BuildFinished
+      try {
+        val retVal = SBuildRunner.run(cwd = dir, args = args, rethrowInVerboseMode = false)
+        master ! BuildReceptionist.BuildFinished(retVal)
+      } catch {
+        case NonFatal(e) => master ! BuildReceptionist.BuildFailed(e)
+      }
       self ! PoisonPill
   }
 }

@@ -21,7 +21,6 @@ class SBuild(implicit _project: Project) {
         // "org.json4s:json4s-native_2.11:3.2.9",
         //        "com.typesafe:scalalogging-slf4j_2.10:1.1.0",
         "ch.qos.logback:logback-classic:1.0.13",
-        "ch.qos.logback:logback-classic:1.0.13",
         "de.tototec:de.tototec.cmdoption:0.3.2",
         "org.fusesource.jansi:jansi:1.11"
       ).
@@ -149,7 +148,7 @@ class SBuild(implicit _project: Project) {
         case args if !args.isEmpty =>
           addons.support.ForkSupport.runJavaAndWait(
             classpath = compileCp.files ++ jar.files,
-            arguments = args)
+            arguments = Array("-Xmx1024m") ++ args)
         case _ => throw new RuntimeException("Unsupport path: " + schemeContext)
       }
     }
