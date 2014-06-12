@@ -1,6 +1,6 @@
 = SBuild Server
 
-An SBuild server, serving as a long running daemon to reduce initialization time and gain from warmed up JVM.
+An server for http://sbuild.org/[SBuild], serving as a long running daemon to reduce initialization time and gain from warmed up JVM.
 
 This project was initiated and initially developed at the http://www.meetup.com/Scala-Berlin-Brandenburg/events/182906492/[ScalaDays Hackathon in Berlin].
 
